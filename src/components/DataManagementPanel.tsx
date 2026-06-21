@@ -3,9 +3,10 @@ import { useRef, useState } from 'react'
 interface DataManagementPanelProps {
   onExport: () => void
   onImport: (file: File) => Promise<boolean>
+  embedded?: boolean
 }
 
-export function DataManagementPanel({ onExport, onImport }: DataManagementPanelProps) {
+export function DataManagementPanel({ onExport, onImport, embedded = false }: DataManagementPanelProps) {
   const fileInputRef = useRef<HTMLInputElement>(null)
   const [importError, setImportError] = useState<string | null>(null)
   const [importing, setImporting] = useState(false)
@@ -21,7 +22,7 @@ export function DataManagementPanel({ onExport, onImport }: DataManagementPanelP
     if (!file) return
 
     const confirmed = window.confirm(
-      'Importing will replace all saved workouts and sound settings. Continue?',
+      'Importing will replace all saved workouts and settings. Continue?',
     )
     if (!confirmed) return
 
@@ -37,13 +38,12 @@ export function DataManagementPanel({ onExport, onImport }: DataManagementPanelP
   }
 
   return (
-    <section className="panel">
-      <div className="panel-header">
+    <section className={embedded ? 'settings-section' : 'panel'}>
+      <div className={embedded ? 'settings-section-header' : 'panel-header'}>
         <h2>Backup &amp; restore</h2>
       </div>
       <p className="panel-description">
-        Export all saved workouts and sound settings, or import a backup to restore them.
-        Importing overwrites everything currently saved.
+        Export saved workouts and settings, or import a backup to restore them.
       </p>
       <div className="data-actions">
         <button type="button" className="secondary-btn" onClick={onExport}>

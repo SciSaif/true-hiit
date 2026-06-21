@@ -29,6 +29,7 @@ export function usePhaseAlert({
 
   useEffect(() => {
     if (!enabled || !active) return
+    if (phase === 'countdown') return
 
     const alertSec = phase === 'work' ? workAlertSec : restAlertSec
     if (alertSec <= 0) return

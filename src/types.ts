@@ -5,7 +5,7 @@ export interface Exercise {
   gifUrl: string
 }
 
-export type Phase = 'work' | 'rest'
+export type Phase = 'work' | 'rest' | 'countdown'
 
 export interface SessionRecord {
   exerciseId: string
@@ -18,6 +18,11 @@ export interface SoundSettings {
   enabled: boolean
   workAlertSec: number
   restAlertSec: number
+}
+
+export interface TimerSettings {
+  countdownSec: number
+  workEndPenaltySec: number
 }
 
 export interface WorkoutPlan {
@@ -33,4 +38,5 @@ export interface AppDataExport {
   exportedAt: string
   workoutPlans: WorkoutPlan[]
   soundSettings: SoundSettings
+  timerSettings?: TimerSettings
 }

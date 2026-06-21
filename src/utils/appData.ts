@@ -1,5 +1,6 @@
-import type { AppDataExport, SoundSettings, WorkoutPlan } from '../types'
+import type { AppDataExport, SoundSettings, TimerSettings, WorkoutPlan } from '../types'
 import { DEFAULT_SOUND_SETTINGS, saveSoundSettings } from './soundSettings'
+import { DEFAULT_TIMER_SETTINGS, saveTimerSettings } from './timerSettings'
 import { saveWorkoutPlans } from './workoutPlans'
 
 export const APP_DATA_VERSION = 1 as const
@@ -7,12 +8,14 @@ export const APP_DATA_VERSION = 1 as const
 export function buildAppExport(
   workoutPlans: WorkoutPlan[],
   soundSettings: SoundSettings,
+  timerSettings: TimerSettings,
 ): AppDataExport {
   return {
     version: APP_DATA_VERSION,
     exportedAt: new Date().toISOString(),
     workoutPlans,
     soundSettings,
+    timerSettings,
   }
 }
 
@@ -34,6 +37,7 @@ export function parseAppImport(raw: string): AppDataExport | null {
       exportedAt: typeof data.exportedAt === 'string' ? data.exportedAt : new Date().toISOString(),
       workoutPlans,
       soundSettings: normalizeSoundSettings(data.soundSettings),
+      timerSettings: normalizeTimerSettings(data.timerSettings),
     }
   } catch {
     return null
@@ -43,6 +47,7 @@ export function parseAppImport(raw: string): AppDataExport | null {
 export function applyAppImport(data: AppDataExport) {
   saveWorkoutPlans(data.workoutPlans)
   saveSoundSettings(data.soundSettings)
+  saveTimerSettings(data.timerSettings ?? DEFAULT_TIMER_SETTINGS)
 }
 
 function isValidWorkoutPlan(value: unknown): value is WorkoutPlan {
@@ -88,6 +93,19 @@ function normalizeSoundSettings(settings: SoundSettings): SoundSettings {
 function clampAlertSec(value: number): number {
   if (!Number.isFinite(value) || value < 0) return DEFAULT_SOUND_SETTINGS.workAlertSec
   return Math.min(Math.round(value), 5999)
+}
+
+function normalizeTimerSettings(settings: TimerSettings | undefined): TimerSettings {
+  if (!settings) return DEFAULT_TIMER_SETTINGS
+  return {
+    countdownSec: clampTimerSec(settings.countdownSec),
+    workEndPenaltySec: clampTimerSec(settings.workEndPenaltySec),
+  }
+}
+
+function clampTimerSec(value: number): number {
+  if (!Number.isFinite(value) || value < 0) return 0
+  return Math.min(Math.round(value), 60)
 }
 
 export function downloadAppExport(data: AppDataExport) {

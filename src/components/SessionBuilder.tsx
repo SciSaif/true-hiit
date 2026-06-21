@@ -1,34 +1,24 @@
 import { useRef, useState } from 'react'
-import type { Exercise, SoundSettings as SoundSettingsType, WorkoutPlan } from '../types'
+import type { Exercise, WorkoutPlan } from '../types'
 import { ExerciseGif } from './ExerciseGif'
-import { SoundSettings } from './SoundSettings'
 import { SavedPlansPanel } from './SavedPlansPanel'
-import { DataManagementPanel } from './DataManagementPanel'
 
 interface SessionBuilderProps {
   library: Exercise[]
   plans: WorkoutPlan[]
-  soundSettings: SoundSettingsType
-  onSoundSettingsChange: (patch: Partial<SoundSettingsType>) => void
-  onToggleSound: () => void
   onStart: (exercises: Exercise[]) => void
   onSavePlan: (name: string, exerciseIds: string[]) => void
   onDeletePlan: (id: string) => void
-  onExportData: () => void
-  onImportData: (file: File) => Promise<boolean>
+  onOpenSettings: () => void
 }
 
 export function SessionBuilder({
   library,
   plans,
-  soundSettings,
-  onSoundSettingsChange,
-  onToggleSound,
   onStart,
   onSavePlan,
   onDeletePlan,
-  onExportData,
-  onImportData,
+  onOpenSettings,
 }: SessionBuilderProps) {
   const [sessionExercises, setSessionExercises] = useState<Exercise[]>([
     library[0],
@@ -96,30 +86,19 @@ export function SessionBuilder({
   return (
     <div className="session-builder">
       <header className="app-header">
-        <h1>True HIIT</h1>
-        <p className="tagline">
-          Work until you hit your limit. Rest until you&apos;re ready. No fixed intervals.
-        </p>
-      </header>
-
-      <section className="panel">
-        <div className="panel-header">
-          <h2>Sound alerts</h2>
+        <div className="app-header-row">
+          <h1>True HIIT</h1>
           <button
             type="button"
-            className={`icon-btn sound-toggle${soundSettings.enabled ? ' sound-toggle-on' : ''}`}
-            onClick={onToggleSound}
-            aria-label={soundSettings.enabled ? 'Turn sound off' : 'Turn sound on'}
-            aria-pressed={soundSettings.enabled}
+            className="text-btn settings-link"
+            onClick={onOpenSettings}
+            aria-label="Open settings"
           >
-            {soundSettings.enabled ? '🔊' : '🔇'}
+            Settings
           </button>
         </div>
-        <SoundSettings settings={soundSettings} onChange={onSoundSettingsChange} />
-        {!soundSettings.enabled && (
-          <p className="sound-off-hint">Enable sound to get alerts during work and rest periods.</p>
-        )}
-      </section>
+        <p className="tagline">Work until your limit. Rest until you&apos;re ready.</p>
+      </header>
 
       <SavedPlansPanel
         plans={plans}
@@ -273,8 +252,6 @@ export function SessionBuilder({
           </ul>
         </section>
       )}
-
-      <DataManagementPanel onExport={onExportData} onImport={onImportData} />
     </div>
   )
 }

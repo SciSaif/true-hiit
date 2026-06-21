@@ -1,25 +1,30 @@
 import { useCallback, useEffect, useRef, useState, type MouseEvent } from 'react'
-import type { Exercise, Phase, SessionRecord, SoundSettings as SoundSettingsType } from '../types'
+import type {
+  Exercise,
+  Phase,
+  SessionRecord,
+  SoundSettings as SoundSettingsType,
+  TimerSettings as TimerSettingsType,
+} from '../types'
 import { formatTime, useStopwatch } from '../hooks/useStopwatch'
 import { useSpaceKey } from '../hooks/useSpaceKey'
 import { usePhaseAlert } from '../hooks/usePhaseAlert'
 import { useMediaQuery } from '../hooks/useMediaQuery'
 import { ExerciseGif } from './ExerciseGif'
-import { SoundSettings } from './SoundSettings'
 
 interface WorkoutSessionProps {
   exercises: Exercise[]
   soundSettings: SoundSettingsType
-  onSoundSettingsChange: (patch: Partial<SoundSettingsType>) => void
   onToggleSound: () => void
+  timerSettings: TimerSettingsType
   onExit: () => void
 }
 
 export function WorkoutSession({
   exercises,
   soundSettings,
-  onSoundSettingsChange,
   onToggleSound,
+  timerSettings,
   onExit,
 }: WorkoutSessionProps) {
   const [exerciseIndex, setExerciseIndex] = useState(0)
@@ -28,6 +33,7 @@ export function WorkoutSession({
   const [timerToken, setTimerToken] = useState(0)
   const [records, setRecords] = useState<SessionRecord[]>([])
   const [currentWorkMs, setCurrentWorkMs] = useState(0)
+  const [pendingRestMs, setPendingRestMs] = useState(0)
 
   const timerRunning = !completed
   const elapsedMs = useStopwatch(timerRunning, timerToken)
@@ -38,42 +44,101 @@ export function WorkoutSession({
   }, [elapsedMs])
 
   const currentExercise = exercises[exerciseIndex]
+  const nextExercise = !completed && exerciseIndex < exercises.length - 1 ? exercises[exerciseIndex + 1] : null
   const isLastExercise = exerciseIndex === exercises.length - 1
+  const displayExercise = phase === 'countdown' && nextExercise ? nextExercise : currentExercise
 
   const resetTimer = useCallback(() => {
     setTimerToken((token) => token + 1)
   }, [])
 
+  const finishExerciseAndStartNext = useCallback(
+    (restMs: number) => {
+      const record: SessionRecord = {
+        exerciseId: currentExercise.id,
+        exerciseName: currentExercise.name,
+        workMs: currentWorkMs,
+        restMs,
+      }
+
+      setRecords((prev) => [...prev, record])
+      setCurrentWorkMs(0)
+      setPendingRestMs(0)
+      setExerciseIndex((index) => index + 1)
+      setPhase('work')
+      resetTimer()
+    },
+    [currentExercise, currentWorkMs, resetTimer],
+  )
+
   const advance = useCallback(() => {
     if (completed) return
 
     if (phase === 'work') {
-      setCurrentWorkMs(elapsedRef.current)
+      const penaltyMs = timerSettings.workEndPenaltySec * 1000
+      setCurrentWorkMs(Math.max(0, elapsedRef.current - penaltyMs))
       setPhase('rest')
       resetTimer()
       return
     }
 
-    const record: SessionRecord = {
-      exerciseId: currentExercise.id,
-      exerciseName: currentExercise.name,
-      workMs: currentWorkMs,
-      restMs: elapsedRef.current,
+    if (phase === 'countdown') {
+      finishExerciseAndStartNext(pendingRestMs)
+      return
     }
 
-    setRecords((prev) => [...prev, record])
-    setCurrentWorkMs(0)
-
     if (isLastExercise) {
+      const record: SessionRecord = {
+        exerciseId: currentExercise.id,
+        exerciseName: currentExercise.name,
+        workMs: currentWorkMs,
+        restMs: elapsedRef.current,
+      }
+
+      setRecords((prev) => [...prev, record])
+      setCurrentWorkMs(0)
       setCompleted(true)
       resetTimer()
       return
     }
 
-    setExerciseIndex((index) => index + 1)
-    setPhase('work')
+    if (timerSettings.countdownSec <= 0) {
+      finishExerciseAndStartNext(elapsedRef.current)
+      return
+    }
+
+    setPendingRestMs(elapsedRef.current)
+    setPhase('countdown')
     resetTimer()
-  }, [completed, phase, currentExercise, currentWorkMs, isLastExercise, resetTimer])
+  }, [
+    completed,
+    phase,
+    timerSettings.workEndPenaltySec,
+    timerSettings.countdownSec,
+    isLastExercise,
+    currentExercise,
+    currentWorkMs,
+    pendingRestMs,
+    finishExerciseAndStartNext,
+    resetTimer,
+  ])
+
+  useEffect(() => {
+    if (phase !== 'countdown' || completed) return
+
+    const countdownMs = timerSettings.countdownSec * 1000
+    if (countdownMs <= 0) return
+    if (elapsedMs >= countdownMs) {
+      finishExerciseAndStartNext(pendingRestMs)
+    }
+  }, [
+    phase,
+    completed,
+    elapsedMs,
+    timerSettings.countdownSec,
+    pendingRestMs,
+    finishExerciseAndStartNext,
+  ])
 
   const goBack = useCallback(() => {
     if (completed) {
@@ -85,6 +150,13 @@ export function WorkoutSession({
         setCurrentWorkMs(lastRecord.workMs)
         setRecords((prev) => prev.slice(0, -1))
       }
+      resetTimer()
+      return
+    }
+
+    if (phase === 'countdown') {
+      setPendingRestMs(0)
+      setPhase('rest')
       resetTimer()
       return
     }
@@ -120,7 +192,7 @@ export function WorkoutSession({
     active: !completed,
   })
 
-  const canGoBack = completed || phase === 'rest' || exerciseIndex > 0
+  const canGoBack = completed || phase === 'countdown' || phase === 'rest' || exerciseIndex > 0
   const isTouchLayout = useMediaQuery('(max-width: 480px), (pointer: coarse)')
 
   const handleSessionTap = useCallback(
@@ -136,28 +208,54 @@ export function WorkoutSession({
   )
 
   const advanceLabel =
-    phase === 'work' ? 'end work' : isLastExercise ? 'finish session' : 'start next exercise'
+    phase === 'work'
+      ? 'end work'
+      : phase === 'countdown'
+        ? 'start now'
+        : isLastExercise
+          ? 'finish session'
+          : 'start next exercise'
 
-  const phaseLabel = completed ? 'Complete' : phase === 'work' ? 'Work' : 'Rest'
+  const phaseLabel = completed
+    ? 'Complete'
+    : phase === 'work'
+      ? 'Work'
+      : phase === 'countdown'
+        ? 'Get ready'
+        : 'Rest'
+
   const phaseHint = completed
     ? 'Review your times below, or start a new session.'
     : isTouchLayout
       ? phase === 'work'
         ? 'Push until your limit, then tap anywhere'
-        : isLastExercise
-          ? 'Rest up, then tap anywhere to finish'
-          : 'Rest until ready, then tap anywhere for the next exercise'
+        : phase === 'countdown'
+          ? 'Get into position — tap anywhere to start early'
+          : isLastExercise
+            ? 'Rest up, then tap anywhere to finish'
+            : 'Rest until ready, then tap anywhere for the next exercise'
       : phase === 'work'
         ? 'Push until your limit, then press Space'
-        : isLastExercise
-          ? 'Rest up, then press Space to finish'
-          : 'Rest until ready, then press Space for the next exercise'
+        : phase === 'countdown'
+          ? 'Get into position — press Space to start early'
+          : isLastExercise
+            ? 'Rest up, then press Space to finish'
+            : 'Rest until ready, then press Space for the next exercise'
+
+  const countdownRemainingSec =
+    phase === 'countdown'
+      ? Math.max(1, Math.ceil((timerSettings.countdownSec * 1000 - elapsedMs) / 1000))
+      : 0
 
   const displayTime = completed
     ? records.reduce((sum, record) => sum + record.workMs + record.restMs, 0)
-    : elapsedMs
+    : phase === 'countdown'
+      ? countdownRemainingSec * 1000
+      : elapsedMs
 
-  const totalWorkMs = records.reduce((sum, record) => sum + record.workMs, 0) + (phase === 'rest' || completed ? currentWorkMs : elapsedMs)
+  const totalWorkMs =
+    records.reduce((sum, record) => sum + record.workMs, 0) +
+    (phase === 'rest' || phase === 'countdown' || completed ? currentWorkMs : elapsedMs)
 
   return (
     <div
@@ -186,18 +284,10 @@ export function WorkoutSession({
         </div>
       </header>
 
-      {soundSettings.enabled && !completed && (
-        <SoundSettings
-          settings={soundSettings}
-          onChange={onSoundSettingsChange}
-          compact
-        />
-      )}
-
       <main className="session-main">
         <div className={`phase-badge phase-badge-${completed ? 'complete' : phase}`}>{phaseLabel}</div>
 
-        {!completed && (
+        {!completed && phase !== 'countdown' && (
           <>
             <ExerciseGif
               src={currentExercise.gifUrl}
@@ -210,10 +300,40 @@ export function WorkoutSession({
           </>
         )}
 
+        {!completed && phase === 'countdown' && displayExercise && (
+          <>
+            <ExerciseGif
+              src={displayExercise.gifUrl}
+              alt={displayExercise.name}
+              size="session"
+              className="session-exercise-gif"
+            />
+            <h1 className="current-exercise">{displayExercise.name}</h1>
+            <p className="exercise-description">{displayExercise.description}</p>
+          </>
+        )}
+
+        {!completed && phase === 'rest' && nextExercise && (
+          <div className="up-next">
+            <p className="up-next-label">Up next</p>
+            <ExerciseGif
+              src={nextExercise.gifUrl}
+              alt={nextExercise.name}
+              size="session"
+              className="up-next-gif"
+            />
+            <h2 className="up-next-name">{nextExercise.name}</h2>
+            <p className="up-next-description">{nextExercise.description}</p>
+          </div>
+        )}
+
         {completed && <h1 className="current-exercise">Session complete</h1>}
 
-        <div className="timer-display" aria-live="polite">
-          {formatTime(displayTime)}
+        <div
+          className={`timer-display${phase === 'countdown' ? ' timer-display-countdown' : ''}`}
+          aria-live="polite"
+        >
+          {phase === 'countdown' ? countdownRemainingSec : formatTime(displayTime)}
         </div>
 
         <p className="phase-hint">{phaseHint}</p>
@@ -235,7 +355,13 @@ export function WorkoutSession({
 
         {!completed && (
           <button type="button" className="primary-btn session-advance-btn" onClick={advance}>
-            {phase === 'work' ? 'Hit limit' : isLastExercise ? 'Finish' : 'Next exercise'}
+            {phase === 'work'
+              ? 'Hit limit'
+              : phase === 'countdown'
+                ? 'Start now'
+                : isLastExercise
+                  ? 'Finish'
+                  : 'Next exercise'}
           </button>
         )}
 
@@ -246,7 +372,7 @@ export function WorkoutSession({
         )}
       </footer>
 
-      {(records.length > 0 || phase === 'rest') && (
+      {(records.length > 0 || phase === 'rest' || phase === 'countdown') && (
         <section className="session-summary">
           <h2>Session log</h2>
           <ul>
@@ -263,6 +389,14 @@ export function WorkoutSession({
                 <span>{currentExercise.name}</span>
                 <span>
                   {formatTime(currentWorkMs)} work · {formatTime(elapsedMs)} rest
+                </span>
+              </li>
+            )}
+            {!completed && phase === 'countdown' && (
+              <li className="current-log">
+                <span>{currentExercise.name}</span>
+                <span>
+                  {formatTime(currentWorkMs)} work · {formatTime(pendingRestMs)} rest · getting ready
                 </span>
               </li>
             )}

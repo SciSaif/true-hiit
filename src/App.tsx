@@ -3,12 +3,15 @@ import { EXERCISES } from './data/exercises'
 import type { Exercise } from './types'
 import { SessionBuilder } from './components/SessionBuilder'
 import { WorkoutSession } from './components/WorkoutSession'
+import { SettingsPage } from './components/SettingsPage'
 import { useSoundSettings } from './hooks/useSoundSettings'
+import { useTimerSettings } from './hooks/useTimerSettings'
 import { useWorkoutPlans } from './hooks/useWorkoutPlans'
+import { DEFAULT_TIMER_SETTINGS } from './utils/timerSettings'
 import { applyAppImport, buildAppExport, downloadAppExport, parseAppImport } from './utils/appData'
 import './App.css'
 
-type AppView = 'builder' | 'session'
+type AppView = 'builder' | 'session' | 'settings'
 
 function App() {
   const [view, setView] = useState<AppView>('builder')
@@ -19,6 +22,11 @@ function App() {
     toggleEnabled: toggleSound,
     replaceSettings,
   } = useSoundSettings()
+  const {
+    settings: timerSettings,
+    updateSettings: updateTimerSettings,
+    replaceSettings: replaceTimerSettings,
+  } = useTimerSettings()
   const { plans, savePlan, deletePlan, replacePlans } = useWorkoutPlans()
 
   const handleStart = (exercises: Exercise[]) => {
@@ -39,9 +47,9 @@ function App() {
   )
 
   const handleExportData = useCallback(() => {
-    const data = buildAppExport(plans, soundSettings)
+    const data = buildAppExport(plans, soundSettings, timerSettings)
     downloadAppExport(data)
-  }, [plans, soundSettings])
+  }, [plans, soundSettings, timerSettings])
 
   const handleImportData = useCallback(
     async (file: File): Promise<boolean> => {
@@ -53,35 +61,47 @@ function App() {
         applyAppImport(data)
         replacePlans(data.workoutPlans)
         replaceSettings(data.soundSettings)
+        replaceTimerSettings(data.timerSettings ?? DEFAULT_TIMER_SETTINGS)
         return true
       } catch {
         return false
       }
     },
-    [replacePlans, replaceSettings],
+    [replacePlans, replaceSettings, replaceTimerSettings],
   )
 
   return (
     <div className="app">
-      {view === 'builder' ? (
+      {view === 'builder' && (
         <SessionBuilder
           library={EXERCISES}
           plans={plans}
-          soundSettings={soundSettings}
-          onSoundSettingsChange={updateSoundSettings}
-          onToggleSound={toggleSound}
           onStart={handleStart}
           onSavePlan={handleSavePlan}
           onDeletePlan={deletePlan}
-          onExportData={handleExportData}
-          onImportData={handleImportData}
+          onOpenSettings={() => setView('settings')}
         />
-      ) : (
-        <WorkoutSession
-          exercises={sessionExercises}
+      )}
+
+      {view === 'settings' && (
+        <SettingsPage
           soundSettings={soundSettings}
           onSoundSettingsChange={updateSoundSettings}
           onToggleSound={toggleSound}
+          timerSettings={timerSettings}
+          onTimerSettingsChange={updateTimerSettings}
+          onExportData={handleExportData}
+          onImportData={handleImportData}
+          onBack={() => setView('builder')}
+        />
+      )}
+
+      {view === 'session' && (
+        <WorkoutSession
+          exercises={sessionExercises}
+          soundSettings={soundSettings}
+          onToggleSound={toggleSound}
+          timerSettings={timerSettings}
           onExit={handleExit}
         />
       )}

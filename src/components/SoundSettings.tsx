@@ -4,13 +4,23 @@ interface SoundSettingsProps {
   settings: SoundSettingsType
   onChange: (patch: Partial<SoundSettingsType>) => void
   compact?: boolean
+  embedded?: boolean
+  alwaysShow?: boolean
 }
 
-export function SoundSettings({ settings, onChange, compact = false }: SoundSettingsProps) {
-  if (!settings.enabled) return null
+export function SoundSettings({
+  settings,
+  onChange,
+  compact = false,
+  embedded = false,
+  alwaysShow = false,
+}: SoundSettingsProps) {
+  if (!alwaysShow && !settings.enabled) return null
 
   return (
-    <div className={`sound-settings${compact ? ' sound-settings-compact' : ''}`}>
+    <div
+      className={`sound-settings${compact ? ' sound-settings-compact' : ''}${embedded ? ' sound-settings-embedded' : ''}${!settings.enabled && alwaysShow ? ' sound-settings-disabled' : ''}`}
+    >
       <p className="sound-settings-label">Alert after</p>
       <div className="sound-settings-fields">
         <label className="sound-field">
@@ -22,6 +32,7 @@ export function SoundSettings({ settings, onChange, compact = false }: SoundSett
               max={5999}
               step={1}
               value={settings.workAlertSec}
+              disabled={!settings.enabled}
               onChange={(event) => onChange({ workAlertSec: parseAlertSec(event.target.value) })}
               aria-label="Work alert after seconds"
             />
@@ -37,6 +48,7 @@ export function SoundSettings({ settings, onChange, compact = false }: SoundSett
               max={5999}
               step={1}
               value={settings.restAlertSec}
+              disabled={!settings.enabled}
               onChange={(event) => onChange({ restAlertSec: parseAlertSec(event.target.value) })}
               aria-label="Rest alert after seconds"
             />
