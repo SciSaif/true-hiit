@@ -1,8 +1,9 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState, type MouseEvent } from 'react'
 import type { Exercise, Phase, SessionRecord, SoundSettings as SoundSettingsType } from '../types'
 import { formatTime, useStopwatch } from '../hooks/useStopwatch'
 import { useSpaceKey } from '../hooks/useSpaceKey'
 import { usePhaseAlert } from '../hooks/usePhaseAlert'
+import { useMediaQuery } from '../hooks/useMediaQuery'
 import { ExerciseGif } from './ExerciseGif'
 import { SoundSettings } from './SoundSettings'
 
@@ -120,15 +121,37 @@ export function WorkoutSession({
   })
 
   const canGoBack = completed || phase === 'rest' || exerciseIndex > 0
+  const isTouchLayout = useMediaQuery('(max-width: 480px), (pointer: coarse)')
+
+  const handleSessionTap = useCallback(
+    (event: MouseEvent<HTMLElement>) => {
+      if (completed) return
+
+      const target = event.target as HTMLElement
+      if (target.closest('button, input, textarea, select, label, a')) return
+
+      advance()
+    },
+    [completed, advance],
+  )
+
+  const advanceLabel =
+    phase === 'work' ? 'end work' : isLastExercise ? 'finish session' : 'start next exercise'
 
   const phaseLabel = completed ? 'Complete' : phase === 'work' ? 'Work' : 'Rest'
   const phaseHint = completed
     ? 'Review your times below, or start a new session.'
-    : phase === 'work'
-      ? 'Push until your limit, then press Space'
-      : isLastExercise
-        ? 'Rest up, then press Space to finish'
-        : 'Rest until ready, then press Space for the next exercise'
+    : isTouchLayout
+      ? phase === 'work'
+        ? 'Push until your limit, then tap anywhere'
+        : isLastExercise
+          ? 'Rest up, then tap anywhere to finish'
+          : 'Rest until ready, then tap anywhere for the next exercise'
+      : phase === 'work'
+        ? 'Push until your limit, then press Space'
+        : isLastExercise
+          ? 'Rest up, then press Space to finish'
+          : 'Rest until ready, then press Space for the next exercise'
 
   const displayTime = completed
     ? records.reduce((sum, record) => sum + record.workMs + record.restMs, 0)
@@ -137,7 +160,10 @@ export function WorkoutSession({
   const totalWorkMs = records.reduce((sum, record) => sum + record.workMs, 0) + (phase === 'rest' || completed ? currentWorkMs : elapsedMs)
 
   return (
-    <div className={`workout-session phase-${completed ? 'complete' : phase}`}>
+    <div
+      className={`workout-session phase-${completed ? 'complete' : phase}${!completed && isTouchLayout ? ' workout-session-tappable' : ''}`}
+      onClick={!completed && isTouchLayout ? handleSessionTap : undefined}
+    >
       <header className="session-header">
         <button type="button" className="text-btn" onClick={onExit}>
           ← Exit
@@ -193,11 +219,12 @@ export function WorkoutSession({
         <p className="phase-hint">{phaseHint}</p>
 
         <div className="keyboard-hint">
-          {!completed && (
+          {!completed && !isTouchLayout && (
             <>
-              <kbd>Space</kbd> {phase === 'work' ? 'end work' : 'next exercise'}
+              <kbd>Space</kbd> {advanceLabel}
             </>
           )}
+          {!completed && isTouchLayout && <span className="tap-hint">Tap anywhere to {advanceLabel}</span>}
         </div>
       </main>
 
@@ -207,7 +234,7 @@ export function WorkoutSession({
         </button>
 
         {!completed && (
-          <button type="button" className="primary-btn" onClick={advance}>
+          <button type="button" className="primary-btn session-advance-btn" onClick={advance}>
             {phase === 'work' ? 'Hit limit' : isLastExercise ? 'Finish' : 'Next exercise'}
           </button>
         )}

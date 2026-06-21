@@ -71,6 +71,9 @@ kbd {
   max-width: 640px;
   margin: 0 auto;
   padding: 24px 16px 48px;
+  padding-left: max(16px, env(safe-area-inset-left));
+  padding-right: max(16px, env(safe-area-inset-right));
+  padding-bottom: max(48px, env(safe-area-inset-bottom));
 }
 
 .app-header {
@@ -399,6 +402,16 @@ kbd {
   flex-direction: column;
 }
 
+.workout-session-tappable {
+  cursor: pointer;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.workout-session-tappable:active:not(:has(button:active, input:focus)) .session-main {
+  opacity: 0.92;
+}
+
 .session-header {
   display: flex;
   align-items: center;
@@ -597,6 +610,16 @@ kbd {
   color: var(--text-muted);
 }
 
+.tap-hint {
+  display: inline-block;
+  padding: 8px 14px;
+  border-radius: 999px;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  color: var(--text-heading);
+  font-size: 0.9rem;
+}
+
 .session-footer {
   display: flex;
   gap: 12px;
@@ -671,8 +694,81 @@ kbd {
 }
 
 @media (max-width: 480px) {
+  .app {
+    padding-top: max(16px, env(safe-area-inset-top));
+    padding-bottom: max(32px, env(safe-area-inset-bottom));
+  }
+
+  .app-header {
+    margin-bottom: 24px;
+  }
+
   .app-header h1 {
     font-size: 2rem;
+  }
+
+  .panel {
+    padding: 16px;
+  }
+
+  .exercise-item {
+    padding: 10px;
+    gap: 8px;
+  }
+
+  .exercise-gif-thumb {
+    width: 56px;
+    height: 56px;
+  }
+
+  .exercise-gif-fallback.exercise-gif-thumb {
+    width: 56px;
+    height: 56px;
+    font-size: 1.1rem;
+  }
+
+  .exercise-info strong {
+    font-size: 0.9rem;
+  }
+
+  .exercise-info p {
+    font-size: 0.75rem;
+  }
+
+  .library-item {
+    flex-wrap: wrap;
+    padding: 10px;
+  }
+
+  .library-item .secondary-btn {
+    width: 100%;
+    text-align: center;
+    padding: 12px 18px;
+  }
+
+  .icon-btn {
+    width: 40px;
+    height: 40px;
+  }
+
+  .sound-settings-fields {
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  .workout-session {
+    min-height: calc(100svh - 32px);
+  }
+
+  .session-header {
+    margin-bottom: 16px;
+    padding-top: env(safe-area-inset-top);
+  }
+
+  .session-main {
+    padding: 16px 0;
+    flex: 1;
+    justify-content: center;
   }
 
   .timer-display {
@@ -683,7 +779,36 @@ kbd {
     font-size: 1.75rem;
   }
 
+  .exercise-gif-session,
+  .exercise-gif-fallback.exercise-gif-session {
+    width: min(100%, 280px);
+    margin-bottom: 16px;
+  }
+
   .session-footer {
     flex-direction: column;
+    gap: 10px;
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+
+  .session-footer .secondary-btn {
+    width: 100%;
+    padding: 14px 18px;
+  }
+
+  .session-summary li {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 4px;
+  }
+
+  .session-summary li span:last-child {
+    white-space: normal;
+  }
+}
+
+@media (max-width: 480px), (pointer: coarse) {
+  .session-advance-btn {
+    display: none;
   }
 }
