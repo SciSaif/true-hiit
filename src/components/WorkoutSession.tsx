@@ -7,8 +7,10 @@ import type {
   TimerSettings as TimerSettingsType,
 } from '../types'
 import { formatTime, useStopwatch } from '../hooks/useStopwatch'
+import { useCountdownTimer } from '../hooks/useCountdownTimer'
 import { useSpaceKey } from '../hooks/useSpaceKey'
 import { usePhaseAlert } from '../hooks/usePhaseAlert'
+import { useTransitionSounds } from '../hooks/useTransitionSounds'
 import { useMediaQuery } from '../hooks/useMediaQuery'
 import { ExerciseGif } from './ExerciseGif'
 
@@ -37,6 +39,7 @@ export function WorkoutSession({
 
   const timerRunning = !completed
   const elapsedMs = useStopwatch(timerRunning, timerToken)
+  const countdownElapsedMs = useCountdownTimer(phase === 'countdown', timerToken)
   const elapsedRef = useRef(elapsedMs)
 
   useEffect(() => {
@@ -129,17 +132,28 @@ export function WorkoutSession({
 
     const countdownMs = timerSettings.countdownSec * 1000
     if (countdownMs <= 0) return
-    if (elapsedMs >= countdownMs) {
+    if (countdownElapsedMs >= countdownMs) {
       finishExerciseAndStartNext(pendingRestMs)
     }
   }, [
     phase,
     completed,
-    elapsedMs,
+    countdownElapsedMs,
     timerSettings.countdownSec,
     pendingRestMs,
     finishExerciseAndStartNext,
   ])
+
+  const countdownMs = timerSettings.countdownSec * 1000
+  const countdownRemainingSec =
+    phase === 'countdown' ? Math.max(0, Math.ceil((countdownMs - countdownElapsedMs) / 1000)) : 0
+
+  useTransitionSounds({
+    enabled: soundSettings.enabled,
+    phase,
+    exerciseIndex,
+    countdownRemainingSec,
+  })
 
   const goBack = useCallback(() => {
     if (completed) {
@@ -215,7 +229,7 @@ export function WorkoutSession({
         ? 'start now'
         : isLastExercise
           ? 'finish session'
-          : 'start next exercise'
+          : 'begin countdown'
 
   const phaseLabel = completed
     ? 'Complete'
@@ -234,24 +248,22 @@ export function WorkoutSession({
           ? 'Get into position — tap anywhere to start early'
           : isLastExercise
             ? 'Rest up, then tap anywhere to finish'
-            : 'Rest until ready, then tap anywhere for the next exercise'
+            : 'Rest until ready, then tap anywhere to begin countdown'
       : phase === 'work'
         ? 'Push until your limit, then press Space'
         : phase === 'countdown'
           ? 'Get into position — press Space to start early'
           : isLastExercise
             ? 'Rest up, then press Space to finish'
-            : 'Rest until ready, then press Space for the next exercise'
+            : 'Rest until ready, then press Space to begin countdown'
 
-  const countdownRemainingSec =
-    phase === 'countdown'
-      ? Math.max(1, Math.ceil((timerSettings.countdownSec * 1000 - elapsedMs) / 1000))
-      : 0
+  const countdownDisplaySec =
+    phase === 'countdown' ? Math.max(1, countdownRemainingSec) : 0
 
   const displayTime = completed
     ? records.reduce((sum, record) => sum + record.workMs + record.restMs, 0)
     : phase === 'countdown'
-      ? countdownRemainingSec * 1000
+      ? countdownDisplaySec * 1000
       : elapsedMs
 
   const totalWorkMs =
@@ -291,6 +303,7 @@ export function WorkoutSession({
         {!completed && featuredExercise && (
           <>
             {phase === 'rest' && <p className="up-next-label">Up next</p>}
+            {phase === 'countdown' && <p className="countdown-prompt">Get into position</p>}
             <ExerciseGif
               src={featuredExercise.gifUrl}
               alt={featuredExercise.name}
@@ -312,7 +325,7 @@ export function WorkoutSession({
           className={`timer-display${phase === 'countdown' ? ' timer-display-countdown' : ''}`}
           aria-live="polite"
         >
-          {phase === 'countdown' ? countdownRemainingSec : formatTime(displayTime)}
+          {phase === 'countdown' ? countdownDisplaySec : formatTime(displayTime)}
         </div>
 
         <p className="phase-hint">{phaseHint}</p>
@@ -340,7 +353,7 @@ export function WorkoutSession({
                 ? 'Start now'
                 : isLastExercise
                   ? 'Finish'
-                  : 'Next exercise'}
+                  : 'Begin countdown'}
           </button>
         )}
 
