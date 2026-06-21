@@ -1,13 +1,23 @@
 import { useRef, useState } from 'react'
-import type { Exercise } from '../types'
+import type { Exercise, SoundSettings as SoundSettingsType } from '../types'
 import { ExerciseGif } from './ExerciseGif'
+import { SoundSettings } from './SoundSettings'
 
 interface SessionBuilderProps {
   library: Exercise[]
+  soundSettings: SoundSettingsType
+  onSoundSettingsChange: (patch: Partial<SoundSettingsType>) => void
+  onToggleSound: () => void
   onStart: (exercises: Exercise[]) => void
 }
 
-export function SessionBuilder({ library, onStart }: SessionBuilderProps) {
+export function SessionBuilder({
+  library,
+  soundSettings,
+  onSoundSettingsChange,
+  onToggleSound,
+  onStart,
+}: SessionBuilderProps) {
   const [sessionExercises, setSessionExercises] = useState<Exercise[]>([
     library[0],
     library[1],
@@ -61,6 +71,25 @@ export function SessionBuilder({ library, onStart }: SessionBuilderProps) {
           Work until you hit your limit. Rest until you&apos;re ready. No fixed intervals.
         </p>
       </header>
+
+      <section className="panel">
+        <div className="panel-header">
+          <h2>Sound alerts</h2>
+          <button
+            type="button"
+            className={`icon-btn sound-toggle${soundSettings.enabled ? ' sound-toggle-on' : ''}`}
+            onClick={onToggleSound}
+            aria-label={soundSettings.enabled ? 'Turn sound off' : 'Turn sound on'}
+            aria-pressed={soundSettings.enabled}
+          >
+            {soundSettings.enabled ? '🔊' : '🔇'}
+          </button>
+        </div>
+        <SoundSettings settings={soundSettings} onChange={onSoundSettingsChange} />
+        {!soundSettings.enabled && (
+          <p className="sound-off-hint">Enable sound to get alerts during work and rest periods.</p>
+        )}
+      </section>
 
       <section className="panel">
         <div className="panel-header">

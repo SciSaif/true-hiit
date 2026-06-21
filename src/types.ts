@@ -13,3 +13,9 @@ export interface SessionRecord {
   workMs: number
   restMs: number
 }
+
+export interface SoundSettings {
+  enabled: boolean
+  workAlertSec: number
+  restAlertSec: number
+}

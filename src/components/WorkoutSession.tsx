@@ -1,15 +1,26 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import type { Exercise, Phase, SessionRecord } from '../types'
+import type { Exercise, Phase, SessionRecord, SoundSettings as SoundSettingsType } from '../types'
 import { formatTime, useStopwatch } from '../hooks/useStopwatch'
 import { useSpaceKey } from '../hooks/useSpaceKey'
+import { usePhaseAlert } from '../hooks/usePhaseAlert'
 import { ExerciseGif } from './ExerciseGif'
+import { SoundSettings } from './SoundSettings'
 
 interface WorkoutSessionProps {
   exercises: Exercise[]
+  soundSettings: SoundSettingsType
+  onSoundSettingsChange: (patch: Partial<SoundSettingsType>) => void
+  onToggleSound: () => void
   onExit: () => void
 }
 
-export function WorkoutSession({ exercises, onExit }: WorkoutSessionProps) {
+export function WorkoutSession({
+  exercises,
+  soundSettings,
+  onSoundSettingsChange,
+  onToggleSound,
+  onExit,
+}: WorkoutSessionProps) {
   const [exerciseIndex, setExerciseIndex] = useState(0)
   const [phase, setPhase] = useState<Phase>('work')
   const [completed, setCompleted] = useState(false)
@@ -98,6 +109,16 @@ export function WorkoutSession({ exercises, onExit }: WorkoutSessionProps) {
 
   useSpaceKey(advance, !completed)
 
+  usePhaseAlert({
+    enabled: soundSettings.enabled,
+    phase,
+    elapsedMs,
+    resetToken: timerToken,
+    workAlertSec: soundSettings.workAlertSec,
+    restAlertSec: soundSettings.restAlertSec,
+    active: !completed,
+  })
+
   const canGoBack = completed || phase === 'rest' || exerciseIndex > 0
 
   const phaseLabel = completed ? 'Complete' : phase === 'work' ? 'Work' : 'Rest'
@@ -121,12 +142,31 @@ export function WorkoutSession({ exercises, onExit }: WorkoutSessionProps) {
         <button type="button" className="text-btn" onClick={onExit}>
           ← Exit
         </button>
-        {!completed && (
-          <span className="progress-label">
-            {exerciseIndex + 1} / {exercises.length}
-          </span>
-        )}
+        <div className="session-header-right">
+          {!completed && (
+            <span className="progress-label">
+              {exerciseIndex + 1} / {exercises.length}
+            </span>
+          )}
+          <button
+            type="button"
+            className={`icon-btn sound-toggle${soundSettings.enabled ? ' sound-toggle-on' : ''}`}
+            onClick={onToggleSound}
+            aria-label={soundSettings.enabled ? 'Turn sound off' : 'Turn sound on'}
+            aria-pressed={soundSettings.enabled}
+          >
+            {soundSettings.enabled ? '🔊' : '🔇'}
+          </button>
+        </div>
       </header>
+
+      {soundSettings.enabled && !completed && (
+        <SoundSettings
+          settings={soundSettings}
+          onChange={onSoundSettingsChange}
+          compact
+        />
+      )}
 
       <main className="session-main">
         <div className={`phase-badge phase-badge-${completed ? 'complete' : phase}`}>{phaseLabel}</div>

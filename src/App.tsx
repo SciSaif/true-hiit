@@ -3,6 +3,7 @@ import { EXERCISES } from './data/exercises'
 import type { Exercise } from './types'
 import { SessionBuilder } from './components/SessionBuilder'
 import { WorkoutSession } from './components/WorkoutSession'
+import { useSoundSettings } from './hooks/useSoundSettings'
 import './App.css'
 
 type AppView = 'builder' | 'session'
@@ -10,6 +11,8 @@ type AppView = 'builder' | 'session'
 function App() {
   const [view, setView] = useState<AppView>('builder')
   const [sessionExercises, setSessionExercises] = useState<Exercise[]>([])
+  const { settings: soundSettings, updateSettings: updateSoundSettings, toggleEnabled: toggleSound } =
+    useSoundSettings()
 
   const handleStart = (exercises: Exercise[]) => {
     setSessionExercises(exercises)
@@ -24,9 +27,21 @@ function App() {
   return (
     <div className="app">
       {view === 'builder' ? (
-        <SessionBuilder library={EXERCISES} onStart={handleStart} />
+        <SessionBuilder
+          library={EXERCISES}
+          soundSettings={soundSettings}
+          onSoundSettingsChange={updateSoundSettings}
+          onToggleSound={toggleSound}
+          onStart={handleStart}
+        />
       ) : (
-        <WorkoutSession exercises={sessionExercises} onExit={handleExit} />
+        <WorkoutSession
+          exercises={sessionExercises}
+          soundSettings={soundSettings}
+          onSoundSettingsChange={updateSoundSettings}
+          onToggleSound={toggleSound}
+          onExit={handleExit}
+        />
       )}
     </div>
   )
