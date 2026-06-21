@@ -893,43 +893,13 @@ kbd {
   border: 1px solid rgba(251, 191, 36, 0.35);
 }
 
-.phase-rest .session-exercise-gif {
-  opacity: 0.55;
-  filter: grayscale(0.25);
-  transition: opacity 0.3s, filter 0.3s;
-}
-
-.up-next {
-  margin-top: 8px;
-  padding-top: 20px;
-  border-top: 1px solid var(--border);
-  width: 100%;
-  max-width: 360px;
-}
-
 .up-next-label {
   font-size: 0.75rem;
   font-weight: 700;
   letter-spacing: 0.1em;
   text-transform: uppercase;
   color: var(--rest);
-  margin-bottom: 12px;
-}
-
-.up-next-gif {
-  margin-bottom: 12px;
-}
-
-.up-next-name {
-  font-size: 1.4rem;
-  letter-spacing: -0.02em;
-  margin-bottom: 6px;
-}
-
-.up-next-description {
-  color: var(--text-muted);
-  font-size: 0.85rem;
-  margin-bottom: 20px;
+  margin-bottom: 16px;
 }
 
 .current-exercise {

@@ -46,7 +46,8 @@ export function WorkoutSession({
   const currentExercise = exercises[exerciseIndex]
   const nextExercise = !completed && exerciseIndex < exercises.length - 1 ? exercises[exerciseIndex + 1] : null
   const isLastExercise = exerciseIndex === exercises.length - 1
-  const displayExercise = phase === 'countdown' && nextExercise ? nextExercise : currentExercise
+  const featuredExercise =
+    phase === 'work' ? currentExercise : phase === 'rest' || phase === 'countdown' ? nextExercise : null
 
   const resetTimer = useCallback(() => {
     setTimerToken((token) => token + 1)
@@ -287,44 +288,22 @@ export function WorkoutSession({
       <main className="session-main">
         <div className={`phase-badge phase-badge-${completed ? 'complete' : phase}`}>{phaseLabel}</div>
 
-        {!completed && phase !== 'countdown' && (
+        {!completed && featuredExercise && (
           <>
+            {phase === 'rest' && <p className="up-next-label">Up next</p>}
             <ExerciseGif
-              src={currentExercise.gifUrl}
-              alt={currentExercise.name}
+              src={featuredExercise.gifUrl}
+              alt={featuredExercise.name}
               size="session"
               className="session-exercise-gif"
             />
-            <h1 className="current-exercise">{currentExercise.name}</h1>
-            <p className="exercise-description">{currentExercise.description}</p>
+            <h1 className="current-exercise">{featuredExercise.name}</h1>
+            <p className="exercise-description">{featuredExercise.description}</p>
           </>
         )}
 
-        {!completed && phase === 'countdown' && displayExercise && (
-          <>
-            <ExerciseGif
-              src={displayExercise.gifUrl}
-              alt={displayExercise.name}
-              size="session"
-              className="session-exercise-gif"
-            />
-            <h1 className="current-exercise">{displayExercise.name}</h1>
-            <p className="exercise-description">{displayExercise.description}</p>
-          </>
-        )}
-
-        {!completed && phase === 'rest' && nextExercise && (
-          <div className="up-next">
-            <p className="up-next-label">Up next</p>
-            <ExerciseGif
-              src={nextExercise.gifUrl}
-              alt={nextExercise.name}
-              size="session"
-              className="up-next-gif"
-            />
-            <h2 className="up-next-name">{nextExercise.name}</h2>
-            <p className="up-next-description">{nextExercise.description}</p>
-          </div>
+        {!completed && phase === 'rest' && isLastExercise && (
+          <h1 className="current-exercise">Final rest</h1>
         )}
 
         {completed && <h1 className="current-exercise">Session complete</h1>}
