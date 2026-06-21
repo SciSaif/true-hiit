@@ -1,3 +1,4 @@
+import { DEFAULT_WORKOUT_PLANS } from '../data/defaultWorkoutPlans'
 import type { WorkoutPlan } from '../types'
 
 const STORAGE_KEY = 'hiit-workout-plans'
@@ -5,14 +6,18 @@ const STORAGE_KEY = 'hiit-workout-plans'
 export function loadWorkoutPlans(): WorkoutPlan[] {
   try {
     const raw = localStorage.getItem(STORAGE_KEY)
-    if (!raw) return []
+    if (raw) {
+      const parsed = JSON.parse(raw)
+      if (Array.isArray(parsed)) {
+        const plans = parsed.filter(isValidWorkoutPlan).map(normalizeWorkoutPlan)
+        if (plans.length > 0) return plans
+      }
+    }
 
-    const parsed = JSON.parse(raw)
-    if (!Array.isArray(parsed)) return []
-
-    return parsed.filter(isValidWorkoutPlan).map(normalizeWorkoutPlan)
+    saveWorkoutPlans(DEFAULT_WORKOUT_PLANS)
+    return DEFAULT_WORKOUT_PLANS
   } catch {
-    return []
+    return DEFAULT_WORKOUT_PLANS
   }
 }
 
