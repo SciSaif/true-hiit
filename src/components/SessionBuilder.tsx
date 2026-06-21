@@ -1,28 +1,42 @@
 import { useRef, useState } from 'react'
-import type { Exercise, SoundSettings as SoundSettingsType } from '../types'
+import type { Exercise, SoundSettings as SoundSettingsType, WorkoutPlan } from '../types'
 import { ExerciseGif } from './ExerciseGif'
 import { SoundSettings } from './SoundSettings'
+import { SavedPlansPanel } from './SavedPlansPanel'
+import { DataManagementPanel } from './DataManagementPanel'
 
 interface SessionBuilderProps {
   library: Exercise[]
+  plans: WorkoutPlan[]
   soundSettings: SoundSettingsType
   onSoundSettingsChange: (patch: Partial<SoundSettingsType>) => void
   onToggleSound: () => void
   onStart: (exercises: Exercise[]) => void
+  onSavePlan: (name: string, exerciseIds: string[]) => void
+  onDeletePlan: (id: string) => void
+  onExportData: () => void
+  onImportData: (file: File) => Promise<boolean>
 }
 
 export function SessionBuilder({
   library,
+  plans,
   soundSettings,
   onSoundSettingsChange,
   onToggleSound,
   onStart,
+  onSavePlan,
+  onDeletePlan,
+  onExportData,
+  onImportData,
 }: SessionBuilderProps) {
   const [sessionExercises, setSessionExercises] = useState<Exercise[]>([
     library[0],
     library[1],
     library[2],
   ])
+  const [isSaving, setIsSaving] = useState(false)
+  const [planName, setPlanName] = useState('')
   const dragIndexRef = useRef<number | null>(null)
 
   const availableExercises = library.filter(
@@ -45,6 +59,22 @@ export function SessionBuilder({
       next.splice(toIndex, 0, moved)
       return next
     })
+  }
+
+  const loadExercises = (exercises: Exercise[]) => {
+    setSessionExercises(exercises)
+  }
+
+  const handleSavePlan = () => {
+    const trimmedName = planName.trim()
+    if (!trimmedName || sessionExercises.length === 0) return
+
+    onSavePlan(
+      trimmedName,
+      sessionExercises.map((exercise) => exercise.id),
+    )
+    setPlanName('')
+    setIsSaving(false)
   }
 
   const handleDragStart = (index: number) => {
@@ -90,6 +120,14 @@ export function SessionBuilder({
           <p className="sound-off-hint">Enable sound to get alerts during work and rest periods.</p>
         )}
       </section>
+
+      <SavedPlansPanel
+        plans={plans}
+        library={library}
+        onLoad={loadExercises}
+        onStart={onStart}
+        onDelete={onDeletePlan}
+      />
 
       <section className="panel">
         <div className="panel-header">
@@ -154,14 +192,64 @@ export function SessionBuilder({
           </ol>
         )}
 
-        <button
-          type="button"
-          className="primary-btn start-btn"
-          disabled={sessionExercises.length === 0}
-          onClick={() => onStart(sessionExercises)}
-        >
-          Start session
-        </button>
+        <div className="session-actions">
+          {isSaving ? (
+            <div className="save-plan-form">
+              <input
+                type="text"
+                className="plan-name-input"
+                placeholder="Workout name"
+                value={planName}
+                onChange={(event) => setPlanName(event.target.value)}
+                onKeyDown={(event) => {
+                  if (event.key === 'Enter') handleSavePlan()
+                  if (event.key === 'Escape') {
+                    setIsSaving(false)
+                    setPlanName('')
+                  }
+                }}
+                autoFocus
+                maxLength={80}
+              />
+              <button
+                type="button"
+                className="secondary-btn"
+                disabled={!planName.trim()}
+                onClick={handleSavePlan}
+              >
+                Save
+              </button>
+              <button
+                type="button"
+                className="text-btn"
+                onClick={() => {
+                  setIsSaving(false)
+                  setPlanName('')
+                }}
+              >
+                Cancel
+              </button>
+            </div>
+          ) : (
+            <button
+              type="button"
+              className="secondary-btn save-plan-btn"
+              disabled={sessionExercises.length === 0}
+              onClick={() => setIsSaving(true)}
+            >
+              Save as workout
+            </button>
+          )}
+
+          <button
+            type="button"
+            className="primary-btn start-btn"
+            disabled={sessionExercises.length === 0}
+            onClick={() => onStart(sessionExercises)}
+          >
+            Start session
+          </button>
+        </div>
       </section>
 
       {availableExercises.length > 0 && (
@@ -185,6 +273,8 @@ export function SessionBuilder({
           </ul>
         </section>
       )}
+
+      <DataManagementPanel onExport={onExportData} onImport={onImportData} />
     </div>
   )
 }

@@ -19,3 +19,18 @@ export interface SoundSettings {
   workAlertSec: number
   restAlertSec: number
 }
+
+export interface WorkoutPlan {
+  id: string
+  name: string
+  exerciseIds: string[]
+  createdAt: string
+  updatedAt: string
+}
+
+export interface AppDataExport {
+  version: 1
+  exportedAt: string
+  workoutPlans: WorkoutPlan[]
+  soundSettings: SoundSettings
+}

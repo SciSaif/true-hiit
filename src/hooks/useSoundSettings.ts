@@ -21,5 +21,10 @@ export function useSoundSettings() {
     })
   }, [])
 
-  return { settings, updateSettings, toggleEnabled }
+  const replaceSettings = useCallback((next: SoundSettings) => {
+    saveSoundSettings(next)
+    setSettings(next)
+  }, [])
+
+  return { settings, updateSettings, toggleEnabled, replaceSettings }
 }
