@@ -9,7 +9,7 @@ import type {
 } from '../types'
 import { formatTime, useStopwatch } from '../hooks/useStopwatch'
 import { useCountdownTimer } from '../hooks/useCountdownTimer'
-import { useSpaceKey } from '../hooks/useSpaceKey'
+import { useSessionKeyboard } from '../hooks/useSessionKeyboard'
 import { usePhaseAlert } from '../hooks/usePhaseAlert'
 import { useTransitionSounds } from '../hooks/useTransitionSounds'
 import { useMediaQuery } from '../hooks/useMediaQuery'
@@ -55,10 +55,23 @@ export function WorkoutSession({
   const elapsedMs = useStopwatch(timerRunning, timerToken)
   const countdownElapsedMs = useCountdownTimer(phase === 'countdown', timerToken)
   const elapsedRef = useRef(elapsedMs)
+  const restAutoAdvanceReadyRef = useRef(false)
 
   useEffect(() => {
     elapsedRef.current = elapsedMs
   }, [elapsedMs])
+
+  useEffect(() => {
+    if (phase === 'rest') {
+      restAutoAdvanceReadyRef.current = false
+    }
+  }, [phase, timerToken])
+
+  useEffect(() => {
+    if (phase === 'rest' && !restAutoAdvanceReadyRef.current && elapsedMs < 100) {
+      restAutoAdvanceReadyRef.current = true
+    }
+  }, [phase, elapsedMs])
 
   const currentExercise = exercises[exerciseIndex]
   const nextExercise = !completed && exerciseIndex < exercises.length - 1 ? exercises[exerciseIndex + 1] : null
@@ -123,13 +136,13 @@ export function WorkoutSession({
       return
     }
 
-    if (timerSettings.countdownSec <= 0) {
-      const restMs = isInterval ? Math.min(elapsedRef.current, restDurationMs) : elapsedRef.current
+    const restMs = isInterval ? Math.min(elapsedRef.current, restDurationMs) : elapsedRef.current
+
+    if (isInterval || timerSettings.countdownSec <= 0) {
       finishExerciseAndStartNext(restMs)
       return
     }
 
-    const restMs = isInterval ? Math.min(elapsedRef.current, restDurationMs) : elapsedRef.current
     setPendingRestMs(restMs)
     setPhase('countdown')
     resetTimer()
@@ -159,13 +172,18 @@ export function WorkoutSession({
       return
     }
 
-    if (isInterval && phase === 'rest' && elapsedMs >= restDurationMs) {
+    if (
+      isInterval &&
+      phase === 'rest' &&
+      restAutoAdvanceReadyRef.current &&
+      elapsedMs >= restDurationMs
+    ) {
       advance()
     }
   }, [completed, phase, isInterval, elapsedMs, workDurationMs, restDurationMs, advance, resetTimer])
 
   useEffect(() => {
-    if (phase !== 'countdown' || completed) return
+    if (isInterval || phase !== 'countdown' || completed) return
 
     const countdownMs = timerSettings.countdownSec * 1000
     if (countdownMs <= 0) return
@@ -177,6 +195,7 @@ export function WorkoutSession({
     completed,
     countdownElapsedMs,
     timerSettings.countdownSec,
+    isInterval,
     pendingRestMs,
     finishExerciseAndStartNext,
   ])
@@ -232,7 +251,9 @@ export function WorkoutSession({
     resetTimer()
   }, [completed, phase, exerciseIndex, exercises.length, records, resetTimer])
 
-  useSpaceKey(advance, !completed)
+  const canGoBack = completed || phase === 'countdown' || phase === 'rest' || exerciseIndex > 0
+
+  useSessionKeyboard(advance, goBack, { enabled: !completed, canGoBack })
 
   usePhaseAlert({
     enabled: sessionSound.enabled && !isInterval,
@@ -244,7 +265,6 @@ export function WorkoutSession({
     active: !completed,
   })
 
-  const canGoBack = completed || phase === 'countdown' || phase === 'rest' || exerciseIndex > 0
   const isTouchLayout = useMediaQuery('(max-width: 480px), (pointer: coarse)')
 
   const handleSessionTap = useCallback(
@@ -395,7 +415,13 @@ export function WorkoutSession({
         <div className="keyboard-hint">
           {!completed && !isTouchLayout && (
             <>
-              <kbd>Space</kbd> {advanceLabel}
+              <kbd>Space</kbd> or <kbd>→</kbd> {advanceLabel}
+              {canGoBack && (
+                <>
+                  {' '}
+                  · <kbd>←</kbd> back
+                </>
+              )}
             </>
           )}
           {!completed && isTouchLayout && <span className="tap-hint">Tap anywhere to {advanceLabel}</span>}
