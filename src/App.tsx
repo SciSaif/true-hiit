@@ -1,55 +1,79 @@
 import { useCallback, useState } from 'react'
 import { EXERCISES } from './data/exercises'
-import type { Exercise } from './types'
-import { SessionBuilder } from './components/SessionBuilder'
+import type { Exercise, SessionConfig, SoundSettings, TimerSettings, WorkoutMode, WorkoutPlan } from './types'
+import { HomePage } from './components/HomePage'
+import { WorkoutCreationPage } from './components/WorkoutCreationPage'
 import { WorkoutSession } from './components/WorkoutSession'
 import { SettingsPage } from './components/SettingsPage'
-import { useSoundSettings } from './hooks/useSoundSettings'
-import { useTimerSettings } from './hooks/useTimerSettings'
 import { useWorkoutPlans } from './hooks/useWorkoutPlans'
-import { DEFAULT_TIMER_SETTINGS } from './utils/timerSettings'
 import { applyAppImport, buildAppExport, downloadAppExport, parseAppImport } from './utils/appData'
 import './App.css'
 
-type AppView = 'builder' | 'session' | 'settings'
+type AppView = 'home' | 'create' | 'session' | 'settings'
 
 function App() {
-  const [view, setView] = useState<AppView>('builder')
-  const [sessionExercises, setSessionExercises] = useState<Exercise[]>([])
-  const {
-    settings: soundSettings,
-    updateSettings: updateSoundSettings,
-    toggleEnabled: toggleSound,
-    replaceSettings,
-  } = useSoundSettings()
-  const {
-    settings: timerSettings,
-    updateSettings: updateTimerSettings,
-    replaceSettings: replaceTimerSettings,
-  } = useTimerSettings()
-  const { plans, savePlan, deletePlan, replacePlans } = useWorkoutPlans()
+  const [view, setView] = useState<AppView>('home')
+  const [sessionConfig, setSessionConfig] = useState<SessionConfig | null>(null)
+  const { plans, savePlan, updatePlan, deletePlan, replacePlans } = useWorkoutPlans()
 
-  const handleStart = (exercises: Exercise[]) => {
-    setSessionExercises(exercises)
+  const handleStart = useCallback(
+    (
+      exercises: Exercise[],
+      mode: WorkoutMode,
+      workSec: number,
+      restSec: number,
+      soundSettings: SoundSettings,
+      timerSettings: TimerSettings,
+    ) => {
+      setSessionConfig({
+        exercises,
+        mode,
+        workSec,
+        restSec,
+        soundSettings: { ...soundSettings },
+        timerSettings: { ...timerSettings },
+      })
+      setView('session')
+    },
+    [],
+  )
+
+  const handleStartPlan = useCallback((plan: WorkoutPlan, exercises: Exercise[]) => {
+    setSessionConfig({
+      exercises,
+      mode: plan.mode,
+      workSec: plan.workSec,
+      restSec: plan.restSec,
+      soundSettings: { ...plan.soundSettings },
+      timerSettings: { ...plan.timerSettings },
+    })
     setView('session')
-  }
+  }, [])
 
   const handleExit = () => {
-    setView('builder')
-    setSessionExercises([])
+    setView('home')
+    setSessionConfig(null)
   }
 
   const handleSavePlan = useCallback(
-    (name: string, exerciseIds: string[]) => {
-      savePlan(name, exerciseIds)
+    (
+      name: string,
+      exerciseIds: string[],
+      mode: WorkoutMode,
+      workSec: number,
+      restSec: number,
+      soundSettings: SoundSettings,
+      timerSettings: TimerSettings,
+    ) => {
+      savePlan(name, exerciseIds, mode, workSec, restSec, soundSettings, timerSettings)
     },
     [savePlan],
   )
 
   const handleExportData = useCallback(() => {
-    const data = buildAppExport(plans, soundSettings, timerSettings)
+    const data = buildAppExport(plans)
     downloadAppExport(data)
-  }, [plans, soundSettings, timerSettings])
+  }, [plans])
 
   const handleImportData = useCallback(
     async (file: File): Promise<boolean> => {
@@ -60,48 +84,53 @@ function App() {
 
         applyAppImport(data)
         replacePlans(data.workoutPlans)
-        replaceSettings(data.soundSettings)
-        replaceTimerSettings(data.timerSettings ?? DEFAULT_TIMER_SETTINGS)
         return true
       } catch {
         return false
       }
     },
-    [replacePlans, replaceSettings, replaceTimerSettings],
+    [replacePlans],
   )
 
   return (
     <div className="app">
-      {view === 'builder' && (
-        <SessionBuilder
-          library={EXERCISES}
+      {view === 'home' && (
+        <HomePage
           plans={plans}
-          onStart={handleStart}
-          onSavePlan={handleSavePlan}
+          library={EXERCISES}
+          onCreateWorkout={() => setView('create')}
+          onStart={handleStartPlan}
+          onUpdatePlan={updatePlan}
           onDeletePlan={deletePlan}
           onOpenSettings={() => setView('settings')}
         />
       )}
 
-      {view === 'settings' && (
-        <SettingsPage
-          soundSettings={soundSettings}
-          onSoundSettingsChange={updateSoundSettings}
-          onToggleSound={toggleSound}
-          timerSettings={timerSettings}
-          onTimerSettingsChange={updateTimerSettings}
-          onExportData={handleExportData}
-          onImportData={handleImportData}
-          onBack={() => setView('builder')}
+      {view === 'create' && (
+        <WorkoutCreationPage
+          library={EXERCISES}
+          onBack={() => setView('home')}
+          onSavePlan={handleSavePlan}
+          onStart={handleStart}
         />
       )}
 
-      {view === 'session' && (
+      {view === 'settings' && (
+        <SettingsPage
+          onExportData={handleExportData}
+          onImportData={handleImportData}
+          onBack={() => setView('home')}
+        />
+      )}
+
+      {view === 'session' && sessionConfig && (
         <WorkoutSession
-          exercises={sessionExercises}
-          soundSettings={soundSettings}
-          onToggleSound={toggleSound}
-          timerSettings={timerSettings}
+          exercises={sessionConfig.exercises}
+          mode={sessionConfig.mode}
+          workSec={sessionConfig.workSec}
+          restSec={sessionConfig.restSec}
+          soundSettings={sessionConfig.soundSettings}
+          timerSettings={sessionConfig.timerSettings}
           onExit={handleExit}
         />
       )}

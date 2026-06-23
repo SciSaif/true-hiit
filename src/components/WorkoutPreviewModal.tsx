@@ -1,9 +1,13 @@
-import type { Exercise } from '../types'
+import type { Exercise, WorkoutMode } from '../types'
+import { workoutModeLabel } from '../utils/workoutPlans'
 import { ExerciseGif } from './ExerciseGif'
 
 interface WorkoutPreviewModalProps {
   planName: string
   exercises: Exercise[]
+  mode: WorkoutMode
+  workSec: number
+  restSec: number
   hasMissingExercises: boolean
   onStart: () => void
   onClose: () => void
@@ -12,6 +16,9 @@ interface WorkoutPreviewModalProps {
 export function WorkoutPreviewModal({
   planName,
   exercises,
+  mode,
+  workSec,
+  restSec,
   hasMissingExercises,
   onStart,
   onClose,
@@ -33,7 +40,8 @@ export function WorkoutPreviewModal({
         </div>
 
         <p className="modal-subtitle">
-          {exercises.length} exercise{exercises.length === 1 ? '' : 's'} in this workout
+          {exercises.length} exercise{exercises.length === 1 ? '' : 's'} · {workoutModeLabel(mode)}
+          {mode === 'interval' && ` · ${workSec}s work · ${restSec}s break`}
         </p>
 
         {hasMissingExercises && (

@@ -1,21 +1,17 @@
 import type { AppDataExport, SoundSettings, TimerSettings, WorkoutPlan } from '../types'
-import { DEFAULT_SOUND_SETTINGS, saveSoundSettings } from './soundSettings'
-import { DEFAULT_TIMER_SETTINGS, saveTimerSettings } from './timerSettings'
-import { saveWorkoutPlans } from './workoutPlans'
+import {
+  normalizePlanSoundSettings,
+  normalizePlanTimerSettings,
+} from './selfPacedSettings'
+import { isValidWorkoutPlan, normalizeWorkoutPlan, saveWorkoutPlans } from './workoutPlans'
 
 export const APP_DATA_VERSION = 1 as const
 
-export function buildAppExport(
-  workoutPlans: WorkoutPlan[],
-  soundSettings: SoundSettings,
-  timerSettings: TimerSettings,
-): AppDataExport {
+export function buildAppExport(workoutPlans: WorkoutPlan[]): AppDataExport {
   return {
     version: APP_DATA_VERSION,
     exportedAt: new Date().toISOString(),
     workoutPlans,
-    soundSettings,
-    timerSettings,
   }
 }
 
@@ -27,17 +23,22 @@ export function parseAppImport(raw: string): AppDataExport | null {
     const data = parsed as Partial<AppDataExport>
     if (data.version !== APP_DATA_VERSION) return null
     if (!Array.isArray(data.workoutPlans)) return null
-    if (!isValidSoundSettings(data.soundSettings)) return null
 
-    const workoutPlans = data.workoutPlans.filter(isValidWorkoutPlan).map(normalizeWorkoutPlan)
+    const legacySound = isValidSoundSettings(data.soundSettings)
+      ? normalizeLegacySoundSettings(data.soundSettings)
+      : undefined
+    const legacyTimer = normalizeLegacyTimerSettings(data.timerSettings)
+
+    const workoutPlans = data.workoutPlans
+      .filter(isValidWorkoutPlan)
+      .map((plan) => migrateImportedPlan(plan, legacySound, legacyTimer))
+
     if (workoutPlans.length === 0 && data.workoutPlans.length > 0) return null
 
     return {
       version: APP_DATA_VERSION,
       exportedAt: typeof data.exportedAt === 'string' ? data.exportedAt : new Date().toISOString(),
       workoutPlans,
-      soundSettings: normalizeSoundSettings(data.soundSettings),
-      timerSettings: normalizeTimerSettings(data.timerSettings),
     }
   } catch {
     return null
@@ -46,30 +47,27 @@ export function parseAppImport(raw: string): AppDataExport | null {
 
 export function applyAppImport(data: AppDataExport) {
   saveWorkoutPlans(data.workoutPlans)
-  saveSoundSettings(data.soundSettings)
-  saveTimerSettings(data.timerSettings ?? DEFAULT_TIMER_SETTINGS)
 }
 
-function isValidWorkoutPlan(value: unknown): value is WorkoutPlan {
-  if (!value || typeof value !== 'object') return false
-  const plan = value as Partial<WorkoutPlan>
-  return (
-    typeof plan.id === 'string' &&
-    typeof plan.name === 'string' &&
-    Array.isArray(plan.exerciseIds) &&
-    plan.exerciseIds.every((id) => typeof id === 'string') &&
-    typeof plan.createdAt === 'string'
-  )
-}
-
-function normalizeWorkoutPlan(plan: WorkoutPlan): WorkoutPlan {
-  return {
-    id: plan.id,
-    name: plan.name.trim() || 'Untitled workout',
-    exerciseIds: [...new Set(plan.exerciseIds)],
-    createdAt: plan.createdAt,
-    updatedAt: plan.updatedAt ?? plan.createdAt,
+function migrateImportedPlan(
+  plan: WorkoutPlan,
+  legacySound?: SoundSettings,
+  legacyTimer?: TimerSettings,
+): WorkoutPlan {
+  const raw = plan as WorkoutPlan & {
+    soundSettings?: Partial<SoundSettings>
+    timerSettings?: Partial<TimerSettings>
   }
+
+  if (raw.mode === 'self-paced') {
+    return normalizeWorkoutPlan({
+      ...raw,
+      soundSettings: normalizePlanSoundSettings(raw.soundSettings ?? legacySound),
+      timerSettings: normalizePlanTimerSettings(raw.timerSettings ?? legacyTimer),
+    })
+  }
+
+  return normalizeWorkoutPlan(raw)
 }
 
 function isValidSoundSettings(value: unknown): value is SoundSettings {
@@ -82,30 +80,13 @@ function isValidSoundSettings(value: unknown): value is SoundSettings {
   )
 }
 
-function normalizeSoundSettings(settings: SoundSettings): SoundSettings {
-  return {
-    enabled: settings.enabled,
-    workAlertSec: clampAlertSec(settings.workAlertSec),
-    restAlertSec: clampAlertSec(settings.restAlertSec),
-  }
+function normalizeLegacySoundSettings(settings: SoundSettings): SoundSettings {
+  return normalizePlanSoundSettings(settings)
 }
 
-function clampAlertSec(value: number): number {
-  if (!Number.isFinite(value) || value < 0) return DEFAULT_SOUND_SETTINGS.workAlertSec
-  return Math.min(Math.round(value), 5999)
-}
-
-function normalizeTimerSettings(settings: TimerSettings | undefined): TimerSettings {
-  if (!settings) return DEFAULT_TIMER_SETTINGS
-  return {
-    countdownSec: clampTimerSec(settings.countdownSec),
-    workEndPenaltySec: clampTimerSec(settings.workEndPenaltySec),
-  }
-}
-
-function clampTimerSec(value: number): number {
-  if (!Number.isFinite(value) || value < 0) return 0
-  return Math.min(Math.round(value), 60)
+function normalizeLegacyTimerSettings(settings: TimerSettings | undefined): TimerSettings | undefined {
+  if (!settings) return undefined
+  return normalizePlanTimerSettings(settings)
 }
 
 export function downloadAppExport(data: AppDataExport) {

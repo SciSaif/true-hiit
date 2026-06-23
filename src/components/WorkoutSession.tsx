@@ -5,6 +5,7 @@ import type {
   SessionRecord,
   SoundSettings as SoundSettingsType,
   TimerSettings as TimerSettingsType,
+  WorkoutMode,
 } from '../types'
 import { formatTime, useStopwatch } from '../hooks/useStopwatch'
 import { useCountdownTimer } from '../hooks/useCountdownTimer'
@@ -16,19 +17,32 @@ import { ExerciseGif } from './ExerciseGif'
 
 interface WorkoutSessionProps {
   exercises: Exercise[]
+  mode: WorkoutMode
+  workSec: number
+  restSec: number
   soundSettings: SoundSettingsType
-  onToggleSound: () => void
   timerSettings: TimerSettingsType
   onExit: () => void
 }
 
 export function WorkoutSession({
   exercises,
+  mode,
+  workSec,
+  restSec,
   soundSettings,
-  onToggleSound,
   timerSettings,
   onExit,
 }: WorkoutSessionProps) {
+  const isInterval = mode === 'interval'
+  const workDurationMs = workSec * 1000
+  const restDurationMs = restSec * 1000
+
+  const [sessionSound, setSessionSound] = useState(soundSettings)
+  const toggleSound = useCallback(() => {
+    setSessionSound((current) => ({ ...current, enabled: !current.enabled }))
+  }, [])
+
   const [exerciseIndex, setExerciseIndex] = useState(0)
   const [phase, setPhase] = useState<Phase>('work')
   const [completed, setCompleted] = useState(false)
@@ -79,8 +93,10 @@ export function WorkoutSession({
     if (completed) return
 
     if (phase === 'work') {
-      const penaltyMs = timerSettings.workEndPenaltySec * 1000
-      setCurrentWorkMs(Math.max(0, elapsedRef.current - penaltyMs))
+      const workMs = isInterval
+        ? Math.min(elapsedRef.current, workDurationMs)
+        : Math.max(0, elapsedRef.current - timerSettings.workEndPenaltySec * 1000)
+      setCurrentWorkMs(workMs)
       setPhase('rest')
       resetTimer()
       return
@@ -92,11 +108,12 @@ export function WorkoutSession({
     }
 
     if (isLastExercise) {
+      const restMs = isInterval ? Math.min(elapsedRef.current, restDurationMs) : elapsedRef.current
       const record: SessionRecord = {
         exerciseId: currentExercise.id,
         exerciseName: currentExercise.name,
         workMs: currentWorkMs,
-        restMs: elapsedRef.current,
+        restMs,
       }
 
       setRecords((prev) => [...prev, record])
@@ -107,16 +124,21 @@ export function WorkoutSession({
     }
 
     if (timerSettings.countdownSec <= 0) {
-      finishExerciseAndStartNext(elapsedRef.current)
+      const restMs = isInterval ? Math.min(elapsedRef.current, restDurationMs) : elapsedRef.current
+      finishExerciseAndStartNext(restMs)
       return
     }
 
-    setPendingRestMs(elapsedRef.current)
+    const restMs = isInterval ? Math.min(elapsedRef.current, restDurationMs) : elapsedRef.current
+    setPendingRestMs(restMs)
     setPhase('countdown')
     resetTimer()
   }, [
     completed,
     phase,
+    isInterval,
+    workDurationMs,
+    restDurationMs,
     timerSettings.workEndPenaltySec,
     timerSettings.countdownSec,
     isLastExercise,
@@ -126,6 +148,21 @@ export function WorkoutSession({
     finishExerciseAndStartNext,
     resetTimer,
   ])
+
+  useEffect(() => {
+    if (completed || phase === 'countdown') return
+
+    if (isInterval && phase === 'work' && elapsedMs >= workDurationMs) {
+      setCurrentWorkMs(workDurationMs)
+      setPhase('rest')
+      resetTimer()
+      return
+    }
+
+    if (isInterval && phase === 'rest' && elapsedMs >= restDurationMs) {
+      advance()
+    }
+  }, [completed, phase, isInterval, elapsedMs, workDurationMs, restDurationMs, advance, resetTimer])
 
   useEffect(() => {
     if (phase !== 'countdown' || completed) return
@@ -149,7 +186,7 @@ export function WorkoutSession({
     phase === 'countdown' ? Math.max(0, Math.ceil((countdownMs - countdownElapsedMs) / 1000)) : 0
 
   useTransitionSounds({
-    enabled: soundSettings.enabled,
+    enabled: sessionSound.enabled,
     phase,
     exerciseIndex,
     countdownRemainingSec,
@@ -198,12 +235,12 @@ export function WorkoutSession({
   useSpaceKey(advance, !completed)
 
   usePhaseAlert({
-    enabled: soundSettings.enabled,
+    enabled: sessionSound.enabled && !isInterval,
     phase,
     elapsedMs,
     resetToken: timerToken,
-    workAlertSec: soundSettings.workAlertSec,
-    restAlertSec: soundSettings.restAlertSec,
+    workAlertSec: sessionSound.workAlertSec,
+    restAlertSec: sessionSound.restAlertSec,
     active: !completed,
   })
 
@@ -224,12 +261,16 @@ export function WorkoutSession({
 
   const advanceLabel =
     phase === 'work'
-      ? 'end work'
+      ? isInterval
+        ? 'skip work'
+        : 'end work'
       : phase === 'countdown'
         ? 'start now'
         : isLastExercise
           ? 'finish session'
-          : 'begin countdown'
+          : isInterval
+            ? 'skip rest'
+            : 'begin countdown'
 
   const phaseLabel = completed
     ? 'Complete'
@@ -243,32 +284,51 @@ export function WorkoutSession({
     ? 'Review your times below, or start a new session.'
     : isTouchLayout
       ? phase === 'work'
-        ? 'Push until your limit, then tap anywhere'
+        ? isInterval
+          ? 'Give it your all — tap anywhere to skip early'
+          : 'Push until your limit, then tap anywhere'
         : phase === 'countdown'
           ? 'Get into position — tap anywhere to start early'
           : isLastExercise
             ? 'Rest up, then tap anywhere to finish'
-            : 'Rest until ready, then tap anywhere to begin countdown'
+            : isInterval
+              ? 'Recover — tap anywhere to skip rest early'
+              : 'Rest until ready, then tap anywhere to begin countdown'
       : phase === 'work'
-        ? 'Push until your limit, then press Space'
+        ? isInterval
+          ? 'Give it your all — press Space to skip early'
+          : 'Push until your limit, then press Space'
         : phase === 'countdown'
           ? 'Get into position — press Space to start early'
           : isLastExercise
             ? 'Rest up, then press Space to finish'
-            : 'Rest until ready, then press Space to begin countdown'
+            : isInterval
+              ? 'Recover — press Space to skip rest early'
+              : 'Rest until ready, then press Space to begin countdown'
 
-  const countdownDisplaySec =
-    phase === 'countdown' ? Math.max(1, countdownRemainingSec) : 0
+  const countdownDisplaySec = phase === 'countdown' ? Math.max(1, countdownRemainingSec) : 0
+
+  const intervalRemainingMs =
+    phase === 'work'
+      ? Math.max(0, workDurationMs - elapsedMs)
+      : phase === 'rest'
+        ? Math.max(0, restDurationMs - elapsedMs)
+        : 0
 
   const displayTime = completed
     ? records.reduce((sum, record) => sum + record.workMs + record.restMs, 0)
     : phase === 'countdown'
       ? countdownDisplaySec * 1000
-      : elapsedMs
+      : isInterval && (phase === 'work' || phase === 'rest')
+        ? intervalRemainingMs
+        : elapsedMs
 
   const totalWorkMs =
     records.reduce((sum, record) => sum + record.workMs, 0) +
     (phase === 'rest' || phase === 'countdown' || completed ? currentWorkMs : elapsedMs)
+
+  const workButtonLabel = isInterval ? 'Skip' : 'Hit limit'
+  const restButtonLabel = isLastExercise ? 'Finish' : isInterval ? 'Skip rest' : 'Begin countdown'
 
   return (
     <div
@@ -285,15 +345,17 @@ export function WorkoutSession({
               {exerciseIndex + 1} / {exercises.length}
             </span>
           )}
-          <button
-            type="button"
-            className={`icon-btn sound-toggle${soundSettings.enabled ? ' sound-toggle-on' : ''}`}
-            onClick={onToggleSound}
-            aria-label={soundSettings.enabled ? 'Turn sound off' : 'Turn sound on'}
-            aria-pressed={soundSettings.enabled}
-          >
-            {soundSettings.enabled ? '🔊' : '🔇'}
-          </button>
+          {!completed && !isInterval && (
+            <button
+              type="button"
+              className={`icon-btn sound-toggle${sessionSound.enabled ? ' sound-toggle-on' : ''}`}
+              onClick={toggleSound}
+              aria-label={sessionSound.enabled ? 'Turn sound off' : 'Turn sound on'}
+              aria-pressed={sessionSound.enabled}
+            >
+              {sessionSound.enabled ? '🔊' : '🔇'}
+            </button>
+          )}
         </div>
       </header>
 
@@ -347,13 +409,7 @@ export function WorkoutSession({
 
         {!completed && (
           <button type="button" className="primary-btn session-advance-btn" onClick={advance}>
-            {phase === 'work'
-              ? 'Hit limit'
-              : phase === 'countdown'
-                ? 'Start now'
-                : isLastExercise
-                  ? 'Finish'
-                  : 'Begin countdown'}
+            {phase === 'work' ? workButtonLabel : phase === 'countdown' ? 'Start now' : restButtonLabel}
           </button>
         )}
 

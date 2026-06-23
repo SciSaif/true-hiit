@@ -1,8 +1,33 @@
 import type { Exercise } from '../types'
 
 const EXERCISEDB = 'https://static.exercisedb.dev/media'
+const LOADMUSCLE = 'https://pub-7c14918da31d450e8d6787a3c225c277.r2.dev/gifs/720'
 
 export const EXERCISES: Exercise[] = [
+  {
+    id: 'butt-kicks',
+    name: 'Butt Kicks',
+    description: 'Jog in place, kicking your heels back toward your glutes.',
+    gifUrl: `${LOADMUSCLE}/3037.webp`,
+  },
+  {
+    id: 'squat-taps',
+    name: 'Squat Taps',
+    description: 'Squat down and tap the floor between your feet, then stand back up.',
+    gifUrl: `${LOADMUSCLE}/4417.webp`,
+  },
+  {
+    id: 'high-knee-taps',
+    name: 'High Knee Taps',
+    description: 'Drive each knee up and tap it with the opposite hand.',
+    gifUrl: `${LOADMUSCLE}/5537.webp`,
+  },
+  {
+    id: 'switching-lunges',
+    name: 'Switching Lunges',
+    description: 'Alternate legs with an explosive switch in the air.',
+    gifUrl: `${EXERCISEDB}/PM1PZjg.gif`,
+  },
   {
     id: 'burpees',
     name: 'Burpees',
@@ -19,7 +44,7 @@ export const EXERCISES: Exercise[] = [
     id: 'jumping-jacks',
     name: 'Jumping Jacks',
     description: 'Jump feet wide while raising arms overhead.',
-    gifUrl: `${EXERCISEDB}/HtfCpfi.gif`,
+    gifUrl: `${LOADMUSCLE}/3094.webp`,
   },
   {
     id: 'mountain-climbers',
@@ -46,6 +71,12 @@ export const EXERCISES: Exercise[] = [
     gifUrl: `${EXERCISEDB}/tZkGYZ9.gif`,
   },
   {
+    id: 'bicycles',
+    name: 'Bicycles',
+    description: 'Alternate elbow to opposite knee in a cycling motion.',
+    gifUrl: `${EXERCISEDB}/1ZFqTDN.gif`,
+  },
+  {
     id: 'lunges',
     name: 'Jump Lunges',
     description: 'Alternate legs with an explosive switch in the air.',
@@ -55,7 +86,19 @@ export const EXERCISES: Exercise[] = [
     id: 'plank-jacks',
     name: 'Plank Jacks',
     description: 'Plank hold while jumping feet in and out.',
-    gifUrl: 'https://media.giphy.com/media/2UqZvQq4p9DjTBDVRc/giphy.gif',
+    gifUrl: `${LOADMUSCLE}/3930.webp`,
+  },
+  {
+    id: 'high-plank-jacks',
+    name: 'High Plank Jacks',
+    description: 'High plank hold while jumping feet in and out.',
+    gifUrl: `${LOADMUSCLE}/3930.webp`,
+  },
+  {
+    id: 'seated-in-and-outs',
+    name: 'Seated In and Outs',
+    description: 'Seated on the floor, draw knees in and extend legs out.',
+    gifUrl: `${EXERCISEDB}/v7p5bYl.gif`,
   },
   {
     id: 'skaters',
