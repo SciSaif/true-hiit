@@ -64,8 +64,3 @@ export function playBeep() {
 export function playCountdownTick() {
   playTone(660, 0.12, 0.22)
 }
-
-export function playStartSound() {
-  playTone(523, 0.12, 0.28)
-  playTone(784, 0.2, 0.32, 'sine', 0.14)
-}

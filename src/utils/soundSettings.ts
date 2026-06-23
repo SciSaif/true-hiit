@@ -3,9 +3,9 @@ import type { SoundSettings } from '../types'
 const STORAGE_KEY = 'hiit-sound-settings'
 
 export const DEFAULT_SOUND_SETTINGS: SoundSettings = {
-  enabled: false,
-  workAlertSec: 30,
-  restAlertSec: 30,
+  enabled: true,
+  workAlertSec: 0,
+  restAlertSec: 0,
 }
 
 export function loadSoundSettings(): SoundSettings {

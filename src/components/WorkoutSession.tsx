@@ -56,6 +56,7 @@ export function WorkoutSession({
   const countdownElapsedMs = useCountdownTimer(phase === 'countdown', timerToken)
   const elapsedRef = useRef(elapsedMs)
   const restAutoAdvanceReadyRef = useRef(false)
+  const suppressTransitionSoundRef = useRef(false)
 
   useEffect(() => {
     elapsedRef.current = elapsedMs
@@ -209,9 +210,12 @@ export function WorkoutSession({
     phase,
     exerciseIndex,
     countdownRemainingSec,
+    completed,
+    suppressNextRef: suppressTransitionSoundRef,
   })
 
   const goBack = useCallback(() => {
+    suppressTransitionSoundRef.current = true
     if (completed) {
       setCompleted(false)
       setExerciseIndex(exercises.length - 1)
@@ -365,7 +369,7 @@ export function WorkoutSession({
               {exerciseIndex + 1} / {exercises.length}
             </span>
           )}
-          {!completed && !isInterval && (
+          {!completed && (
             <button
               type="button"
               className={`icon-btn sound-toggle${sessionSound.enabled ? ' sound-toggle-on' : ''}`}
